@@ -1,23 +1,18 @@
 use ::reqwest;
 use clap::Parser;
+use data::{Args, Repos};
+use dmenu::create_dmenu_repo_list;
 use exitfailure::ExitFailure;
+use repo_helper::{create_repos_file, retrieve_from_cache};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
-use serde_derive::{Deserialize, Serialize};
 
-#[derive(Parser)]
-struct Args {
-    username: String,
-    api_key: String,
-}
+mod data;
+mod dmenu;
+mod repo_helper;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Response {
-    name: String,
-    private: bool,
-    html_url: String,
-}
+//TODO: Find a way to threat errors
 
-async fn get_own_repos(api_key: &String) -> Result<(), ExitFailure> {
+async fn get_own_repos(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
     let url = "https://api.github.com/user/repos";
     let client = reqwest::Client::new();
     let resp = client
@@ -29,38 +24,34 @@ async fn get_own_repos(api_key: &String) -> Result<(), ExitFailure> {
         .send()
         .await?;
 
-    match resp.status() {
-        reqwest::StatusCode::OK => {
-            match resp.json::<Vec<Response>>().await {
-                Ok(parsed) => print_repos(parsed),
-                Err(_) => println!("Hm, the response didn't match the shape we expected. "),
-            };
-        }
-        reqwest::StatusCode::UNAUTHORIZED => {
-            println!("Need to grab a new token");
-        }
-        other => {
-            panic!("Uh oh! Something unexpected happened: {:?}", other);
-        }
-    };
-    Ok(())
+    let repos: Vec<Repos> = resp.json().await?;
+    // let repos: Vec<Repos> = match resp.status() {
+    //     reqwest::StatusCode::OK => resp.json().await?,
+    //     reqwest::StatusCode::UNAUTHORIZED => {
+    //         println!("Need to grab a new token");
+    //     }
+    //     other => {
+    //         panic!("Uh oh! Something unexpected happened: {:?}", other);
+    //     }
+    // };
+    Ok(repos)
 }
 
-fn print_repos(all_repos: Vec<Response>) {
-    for repo in all_repos {
-        println!("Name: {}", repo.name);
-        println!("Repo Link: {}", repo.html_url);
-        println!("Private: {}", repo.private);
-    }
-}
+// fn print_repos(all_repos: &Vec<Repos>) {
+//     for repo in all_repos {
+//         println!("Name: {}", repo.name);
+//  println!("Repo Link: {}", repo.html_url);
+//         println!("Private: {}", repo.private);
+//     }
+// }
 
 #[tokio::main]
 async fn main() -> Result<(), ExitFailure> {
     let args = Args::parse();
-    let username = args.username;
     let api_key = args.api_key;
 
-    get_own_repos(&api_key).await?;
+    let repos = retrieve_from_cache(&api_key).await?;
+    create_dmenu_repo_list(&repos);
 
     Ok(())
 }
