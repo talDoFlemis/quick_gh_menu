@@ -4,7 +4,32 @@ use std::fs::{self, write, File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 
 use crate::data::Repos;
-use crate::get_own_repos;
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+
+async fn get_own_repos(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
+    let url = "https://api.github.com/user/repos";
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(AUTHORIZATION, format!("token {}", api_key))
+        .header(USER_AGENT, "request")
+        .header(CONTENT_TYPE, "application/json")
+        .header(ACCEPT, "application/json")
+        .send()
+        .await?;
+
+    let repos: Vec<Repos> = resp.json().await?;
+    // let repos: Vec<Repos> = match resp.status() {
+    //     reqwest::StatusCode::OK => resp.json().await?,
+    //     reqwest::StatusCode::UNAUTHORIZED => {
+    //         println!("Need to grab a new token");
+    //     }
+    //     other => {
+    //         panic!("Uh oh! Something unexpected happened: {:?}", other);
+    //     }
+    // };
+    Ok(repos)
+}
 
 pub async fn retrieve_from_cache(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
     let config_path = dirs_next::config_dir().unwrap();

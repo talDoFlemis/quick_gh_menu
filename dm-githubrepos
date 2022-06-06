@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#
+# Script name: dm-githubrepo
+# Inspired by Derek Taylor "DistroTube" dmscripts
+
+set -euo pipefail
+
+DMENU="dmenu -i -l 20 -p"
+BROWSER="firefox"
+
+main() {
+	source "${HOME}/.config/quickGHMenu/repo_list"
+
+	choice="$(printf '%s\n' "${!github_repo_list[@]}" | ${DMENU} "Open Project:" "$@")"
+
+	if [ "$choice" ]; then
+		repo=$(printf '%s\n' "${github_repo_list["${choice}"]}")
+		$BROWSER "$repo"
+	else
+		echo "Program terminated." && exit 0
+	fi
+}
+
+[[ "${BASH_SOURCE[0]}" == "${0}" ]] && main "$@"
