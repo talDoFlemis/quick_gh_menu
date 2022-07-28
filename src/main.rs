@@ -1,22 +1,27 @@
+use anyhow::Result;
 use clap::Parser;
-use data::Args;
-use dmenu::create_dmenu_repo_list;
-use exitfailure::ExitFailure;
-use repo_helper::retrieve_from_cache;
-
-mod data;
-mod dmenu;
-mod repo_helper;
+use quick_gh_rust::{args_parser, dmenu};
+use std::process;
 
 //TODO: Find a way to threat errors
 
 #[tokio::main]
-async fn main() -> Result<(), ExitFailure> {
-    let args = Args::parse();
-    let api_key = args.api_key;
+async fn main() -> Result<()> {
+    let args = args_parser::Cli::parse();
 
-    let repos = retrieve_from_cache(&api_key).await?;
-    create_dmenu_repo_list(&repos);
+    match &args.command {
+        args_parser::Commands::Dmenu => dmenu::run_dmenu().unwrap_or_else(|err| {
+            eprintln!("{err:?}");
+            eprintln!("Please, run a new setup with the setup SUBCOMMAND");
+            process::exit(1);
+        }),
+        args_parser::Commands::Setup(data) => {
+            if let Err(err) = quick_gh_rust::create_all(data).await {
+                eprintln!("{err:?}");
+                process::exit(1);
+            }
+        }
+    }
 
     Ok(())
 }
