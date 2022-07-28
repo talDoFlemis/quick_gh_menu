@@ -1,12 +1,11 @@
+use crate::data::Repo;
+use anyhow::{bail, Context, Ok, Result};
 use dirs_next;
-use exitfailure::ExitFailure;
-use std::fs::{self, write, File, OpenOptions};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
 
-use crate::data::Repos;
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
-
-async fn get_own_repos(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
+pub async fn get_repos_with_api(api_key: &str) -> Result<Vec<Repo>> {
     let url = "https://api.github.com/user/repos";
     let client = reqwest::Client::new();
     let resp = client
@@ -16,49 +15,76 @@ async fn get_own_repos(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
         .header(CONTENT_TYPE, "application/json")
         .header(ACCEPT, "application/json")
         .send()
-        .await?;
+        .await
+        .context("Failed to send request to github")?;
 
-    let repos: Vec<Repos> = resp.json().await?;
-    // let repos: Vec<Repos> = match resp.status() {
-    //     reqwest::StatusCode::OK => resp.json().await?,
-    //     reqwest::StatusCode::UNAUTHORIZED => {
-    //         println!("Need to grab a new token");
-    //     }
-    //     other => {
-    //         panic!("Uh oh! Something unexpected happened: {:?}", other);
-    //     }
-    // };
-    Ok(repos)
-}
+    let repos: Vec<Repo> = match resp.status() {
+        reqwest::StatusCode::OK => resp
+            .json()
+            .await
+            .context("Failed to deserialize the json retrived from github")?,
 
-pub async fn retrieve_from_cache(api_key: &String) -> Result<Vec<Repos>, ExitFailure> {
-    let config_path = dirs_next::config_dir().unwrap();
-    let repos_path = config_path.join("quickGHMenu/repos.json");
-
-    if !repos_path.exists() {
-        create_repos_file(&get_own_repos(api_key).await.unwrap());
-    }
-
-    let file = File::open(&repos_path)?;
-    let repo_file = BufReader::new(file);
-
-    let repos: Vec<Repos> = serde_json::from_reader(repo_file)?;
+        reqwest::StatusCode::UNAUTHORIZED => bail!("Bad API key, need to grab another"),
+        other => {
+            bail!("Uh oh! Something unexpected happened: {:?}", other);
+        }
+    };
 
     Ok(repos)
 }
 
-pub fn create_repos_file(repos: &Vec<Repos>) {
+pub async fn get_repos_with_user(username: &str) -> Result<Vec<Repo>> {
+    let url = format!("https://api.github.com/users/{}/repos", &username);
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, "request")
+        .header(CONTENT_TYPE, "application/json")
+        .header(ACCEPT, "application/json")
+        .send()
+        .await
+        .context("Failed to send request to github")?;
+
+    let repos: Vec<Repo> = match resp.status() {
+        reqwest::StatusCode::OK => resp
+            .json()
+            .await
+            .context("Failed to deserialize the json retrived from github")?,
+
+        reqwest::StatusCode::UNAUTHORIZED => bail!("Bad API key, need to grab another"),
+        other => {
+            bail!("Uh oh! Something unexpected happened: {:?}", other);
+        }
+    };
+
+    Ok(repos)
+}
+
+pub fn create_repos_file(repos: &[Repo]) -> Result<()> {
     let config_path = dirs_next::config_dir().unwrap();
     let repos_path = config_path.join("quickGHMenu");
 
     //TODO: Change create to write func that will create a file and replace its content
     if !repos_path.exists() {
-        fs::create_dir_all(&repos_path)
-            .unwrap_or_else(|e| panic!("Error while trying to create dir: {}", e));
+        fs::create_dir_all(&repos_path).context("Failed to create repositorys path")?;
     }
 
     let file = File::create(repos_path.join("repos.json")).unwrap();
     let mut writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(&mut writer, &repos)
-        .unwrap_or_else(|e| eprintln!("Error while trying to create a repo.json file: {}", e));
+    serde_json::to_writer_pretty(&mut writer, &repos).context("Failed to write repos.json")?;
+
+    Ok(())
+}
+
+pub fn retrieve_from_file() -> Result<Vec<Repo>> {
+    let config_path = dirs_next::config_dir().unwrap();
+    let repos_path = config_path.join("quickGHMenu/repos.json");
+
+    let file = File::open(&repos_path).with_context(|| format!("Failed to open {repos_path:?}"))?;
+    let repo_file = BufReader::new(file);
+
+    let repos: Vec<Repo> =
+        serde_json::from_reader(repo_file).context("Failed to parse repos json")?;
+
+    Ok(repos)
 }

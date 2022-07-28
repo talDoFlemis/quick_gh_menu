@@ -1,26 +1,16 @@
-use clap::Parser;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Parser)]
-pub struct Args {
-    pub api_key: String,
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Repos {
+pub struct Repo {
     pub id: i64,
-    pub node_id: String,
     pub name: String,
     pub full_name: String,
     pub private: bool,
     pub owner: Owner,
     pub html_url: String,
     pub description: Value,
-    pub fork: bool,
     pub url: String,
-    pub forks_url: String,
-    pub keys_url: String,
     pub collaborators_url: String,
     pub teams_url: String,
     pub hooks_url: String,
