@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use quick_gh_rust::{args_parser, dmenu};
+use quick_gh_rust::{args_parser, dmenu, interactive};
 use std::process;
 
 //TODO: Find a way to threat errors
@@ -21,6 +21,12 @@ async fn main() -> Result<()> {
                 process::exit(1);
             }
         }
+        args_parser::Commands::Interactive => interactive::run_interactively()
+            .await
+            .unwrap_or_else(|err| {
+                eprintln!("{err:?}");
+                process::exit(1);
+            }),
     }
 
     Ok(())

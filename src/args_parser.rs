@@ -14,6 +14,8 @@ pub enum Commands {
     Dmenu,
     /// Create a config and repos files
     Setup(Setup),
+    /// Run in interactive mode
+    Interactive,
 }
 
 #[derive(Args, Debug)]
