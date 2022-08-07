@@ -18,3 +18,5 @@ tokio = { version = "1.0.2", features = ["full"] }
 dirs-next = "2.0.0"
 confy = "0.4.0"
 anyhow = "1.0.58"
+inquire = "0.2.1"
+regex = "1.6.0"

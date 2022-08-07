@@ -1,6 +1,6 @@
 use crate::args_parser::Setup;
 use crate::data::Repo;
-use crate::{repo_helper, send_to_browser, Config};
+use crate::{browser, repo_helper, Config};
 use anyhow::{Context, Result};
 use dirs_next;
 use serde_derive::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ pub fn run_dmenu() -> Result<()> {
         }
     }
 
-    send_to_browser(url, config.browser)?;
+    browser::Browser::send_to_browser(&url, config.browser.command)?;
 
     Ok(())
 }
