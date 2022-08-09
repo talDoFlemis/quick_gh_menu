@@ -13,40 +13,23 @@ impl Browser {
     pub fn get_all_browsers() -> Result<Vec<Self>> {
         let mut browsers: Vec<Self> = Vec::new();
         let file = fs::read_to_string("/usr/share/applications/mimeinfo.cache")?;
-        let mut mime_cache = file
-            .lines()
-            .find(|&line| line.contains("x-scheme-handler/https"))
-            .unwrap()
-            .strip_prefix("x-scheme-handler/https=")
-            .unwrap()
-            .chars();
+        let find_x_scheme = Regex::new(r"x-scheme-handler/https=.*").unwrap();
+        let x_scheme_https = find_x_scheme.find(&file).unwrap();
+        let cap_programs = Regex::new(r"([^=;]*.desktop)").unwrap();
 
-        mime_cache.next_back();
-        let apps = mime_cache.as_str().split(';');
+        for cap in cap_programs.captures_iter(x_scheme_https.as_str()) {
+            let app_entry = fs::read_to_string(format!("/usr/share/applications/{}", &cap[0]))
+                .with_context(|| format!("Couldn't read {}", &cap[0]))?;
 
-        for app in apps {
-            let app_entry = fs::read_to_string(format!("/usr/share/applications/{app}"))
-                .with_context(|| format!("Couldn't read {app}"))?;
+            let find_browser_name = Regex::new(r"Name=(.*)").unwrap();
+            let browser_name = find_browser_name.captures(&app_entry).unwrap();
 
-            let browser_name = app_entry
-                .lines()
-                .find(|line| line.contains("Name="))
-                .unwrap()
-                .strip_prefix("Name=")
-                .unwrap()
-                .to_string();
-
-            let command = app_entry
-                .lines()
-                .find(|line| line.contains("Exec="))
-                .unwrap()
-                .strip_prefix("Exec=")
-                .unwrap()
-                .to_string();
+            let find_browser_command = Regex::new(r"Exec=(.*)").unwrap();
+            let command = find_browser_command.captures(&app_entry).unwrap();
 
             browsers.push(Browser {
-                browser_name,
-                command,
+                browser_name: browser_name[1].to_string(),
+                command: command[1].to_string(),
             })
         }
 
