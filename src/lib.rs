@@ -25,7 +25,6 @@ pub struct Config {
 }
 
 #[derive(Debug, Serialize, Deserialize, ArgEnum, Clone, Copy)]
-#[serde(untagged)]
 pub enum Method {
     ApiKey,
     Username,
@@ -35,6 +34,7 @@ impl Config {
     pub fn new(data: &Setup) -> Result<Self> {
         let key = (&data.key).to_string();
         let browser_command = (&data.browser).to_string();
+        dbg!(&data.method);
         let config = Config {
             dmenu: dmenu::DmenuSettings::new(data),
             method: data.method,

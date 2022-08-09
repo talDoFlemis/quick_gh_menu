@@ -12,32 +12,50 @@ struct Interactive {
 pub async fn run_interactively() -> Result<()> {
     let config = Config::retrieve_config();
 
-    if config.is_ok() {
+    let interactive = if config.is_ok() {
         println!("Config file found!");
         if Confirm::new("Should we use the config file to fetch the repositories?")
             .with_default(true)
             .prompt()?
         {
-            inter_with_cfg(config.unwrap()).await?;
+            inter_with_cfg(config.unwrap()).await?
         } else {
-            inter_without_cfg().await?;
+            inter_without_cfg().await?
         }
     } else {
         println!("Couldn't find config file");
-        inter_without_cfg().await?;
-    }
+        println!("Starting to generate config file in interactive mode");
+        inter_without_cfg().await?
+    };
+
+    select_repo(interactive)?;
 
     Ok(())
 }
 
-async fn inter_with_cfg(config: Config) -> Result<()> {
+async fn inter_with_cfg(config: Config) -> Result<Interactive> {
     println!("Using the current setup");
     println!("Browser to open the links: {}", config.browser.browser_name);
+    let repos = match config.method {
+        crate::Method::ApiKey => {
+            println!("Fetching repos with API key");
+            repo_helper::get_repos_with_api(&config.key).await?
+        }
+        crate::Method::Username => {
+            println!("Fetching repos with username");
+            repo_helper::get_repos_with_user(&config.key).await?
+        }
+    };
 
-    Ok(())
+    let config = Interactive {
+        browser: config.browser,
+        repos,
+    };
+
+    Ok(config)
 }
 
-async fn inter_without_cfg() -> Result<()> {
+async fn inter_without_cfg() -> Result<Interactive> {
     let browser_list = browser::Browser::get_all_browsers()?;
 
     let mut config = Interactive::default();
@@ -81,6 +99,10 @@ async fn inter_without_cfg() -> Result<()> {
             .to_owned()
     };
 
+    Ok(config)
+}
+
+fn select_repo(config: Interactive) -> Result<()> {
     loop {
         let choosen_repo = Select::new(
             "Please select a repository from the list bellow",
