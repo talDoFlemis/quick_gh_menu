@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Context, Ok, Result};
 use args_parser::Setup;
+use clap::ArgEnum;
 use serde_derive::{Deserialize, Serialize};
 
 pub mod args_parser;
@@ -15,20 +16,29 @@ pub mod errors;
 pub mod interactive;
 pub mod repo_helper;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     dmenu: dmenu::DmenuSettings,
-    api_key: String,
+    method: Method,
+    key: String,
     browser: browser::Browser,
+}
+
+#[derive(Debug, Serialize, Deserialize, ArgEnum, Clone, Copy)]
+#[serde(untagged)]
+pub enum Method {
+    ApiKey,
+    Username,
 }
 
 impl Config {
     pub fn new(data: &Setup) -> Result<Self> {
-        let api_key = (&data.api_key).to_string();
+        let key = (&data.key).to_string();
         let browser_command = (&data.browser).to_string();
         let config = Config {
             dmenu: dmenu::DmenuSettings::new(data),
-            api_key,
+            method: data.method,
+            key,
             browser: browser::Browser {
                 browser_name: String::from("custom"),
                 command: browser_command,
@@ -62,8 +72,13 @@ impl Config {
 }
 
 pub async fn create_all(data: &Setup) -> Result<()> {
-    Config::new(data)?;
-    let repos = repo_helper::get_repos_with_api(&data.api_key).await?;
+    let config = Config::new(data)?;
+
+    let repos = match config.method {
+        Method::ApiKey => repo_helper::get_repos_with_api(&config.key).await?,
+        Method::Username => repo_helper::get_repos_with_user(&config.key).await?,
+    };
+
     repo_helper::create_repos_file(&repos)?;
     println!("Created with success the config file with theses settings: {data:#?}");
 

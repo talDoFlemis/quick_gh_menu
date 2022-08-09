@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use inquire::{Confirm, Password, Select, Text};
 
-use crate::{browser, data::Repo, repo_helper};
+use crate::{browser, data::Repo, repo_helper, Config};
 
 #[derive(Default)]
 struct Interactive {
@@ -10,11 +10,39 @@ struct Interactive {
 }
 
 pub async fn run_interactively() -> Result<()> {
+    let config = Config::retrieve_config();
+
+    if config.is_ok() {
+        println!("Config file found!");
+        if Confirm::new("Should we use the config file to fetch the repositories?")
+            .with_default(true)
+            .prompt()?
+        {
+            inter_with_cfg(config.unwrap()).await?;
+        } else {
+            inter_without_cfg().await?;
+        }
+    } else {
+        println!("Couldn't find config file");
+        inter_without_cfg().await?;
+    }
+
+    Ok(())
+}
+
+async fn inter_with_cfg(config: Config) -> Result<()> {
+    println!("Using the current setup");
+    println!("Browser to open the links: {}", config.browser.browser_name);
+
+    Ok(())
+}
+
+async fn inter_without_cfg() -> Result<()> {
     let browser_list = browser::Browser::get_all_browsers()?;
 
     let mut config = Interactive::default();
 
-    let use_api = Confirm::new("Do you want to use your API key to fetch your repositories")
+    let use_api = Confirm::new("Do you want to use your API key to fetch your repositories?")
         .with_help_message("This will enable you to see private repositories")
         .with_default(false)
         .prompt()?;

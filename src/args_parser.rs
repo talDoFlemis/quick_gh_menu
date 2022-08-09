@@ -1,5 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
+use crate::Method;
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
@@ -20,12 +22,15 @@ pub enum Commands {
 
 #[derive(Args, Debug)]
 pub struct Setup {
-    ///Github API key for retrieving private repos
-    pub api_key: String,
+    ///Use API key or username to fetch the repositories
+    #[clap(arg_enum)]
+    pub method: Method,
+    ///Github API key or username depending on the method choosen
+    pub key: String,
     #[clap(default_value_t = String::from("xdg-open"))]
     ///Browser to open the link
     pub browser: String,
-    #[clap(default_value_t = false)]
+    #[clap(default_value_t = true)]
     ///Case Sensitivity in dmenu
     pub case_insensitive: bool,
     #[clap(default_value_t = 0)]
