@@ -1,12 +1,11 @@
-use std::{
-    fs::File,
-    io::{BufReader, BufWriter},
-};
-
 use anyhow::{Context, Ok, Result};
 use args_parser::Setup;
 use clap::ArgEnum;
 use serde_derive::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 
 pub mod args_parser;
 pub mod browser;
@@ -34,7 +33,6 @@ impl Config {
     pub fn new(data: &Setup) -> Result<Self> {
         let key = (&data.key).to_string();
         let browser_command = (&data.browser).to_string();
-        dbg!(&data.method);
         let config = Config {
             dmenu: dmenu::DmenuSettings::new(data),
             method: data.method,
